@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <map>
+#include <random>
 
 #include "Scheduler.hpp"
 
@@ -25,16 +26,33 @@ int main()
 
     Scheduler scheduler;
 
-    for( const auto& [description, time] : threadsToRun )
+    for( const auto& [description, extraTime] : threadsToRun )
     {
 
         auto threadSample = [description](){ while(1) { cout << description << std::endl; std::this_thread::sleep_for(std::chrono::milliseconds(1000)); } return;};
 
-        scheduler.add( threadSample, nowTimestamp + time );
+        scheduler.add( threadSample, nowTimestamp + extraTime );
 
     }
 
     scheduler.run();
+
+    uint32_t cycleThreadNumber = 0;
+
+    while(1)
+    {
+
+        nowTimestamp = time(NULL);
+
+        auto threadSample = [cycleThreadNumber](){ cout << "Cycle thread " << cycleThreadNumber << std::endl; std::this_thread::sleep_for(std::chrono::milliseconds(1000)); };
+
+        scheduler.add( threadSample, nowTimestamp );
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+        cycleThreadNumber += 1;
+
+    }
 
     return 0;
 

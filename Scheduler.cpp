@@ -1,23 +1,37 @@
 #include "Scheduler.hpp"
 #include <iostream>
 
-void Scheduler::add(std::function<void()> task, std::time_t timestamp)
+void Scheduler::add( std::function<void()> task, std::time_t timestamp )
 {
-    threads.insert( std::pair<std::time_t, std::function<void()>>(timestamp, task) );
+
+    mutexAddLock.lock();
+
+    TaskInfo info;
+
+    info.functionToRun = task;
+
+    threads.insert( { timestamp, info } );
+
+    mutexAddLock.unlock();
+
 }
 
 void Scheduler::controlWorker()
 {
 
+    mutexAddLock.lock();
+
     time_t currentTime = time(NULL);
 
-    for( const auto& [timeToRun, function] : threads )
+    for( auto& [timeToRun, info] : threads )
     {
 
-        if( currentTime == timeToRun )
+        if( (!info.runned) && ( currentTime > timeToRun ) )
         {
 
-            std::thread threadToRun(function);
+            std::thread threadToRun(info.functionToRun);
+
+            info.runned = true;
 
             threadToRun.detach();
 
@@ -25,22 +39,37 @@ void Scheduler::controlWorker()
 
     }
 
+    mutexAddLock.unlock();
+
 }
 
-
-
-void Scheduler::run()
+void Scheduler::controlCycle()
 {
-
-    while(1)
+    while(runned)
     {
 
         std::thread threadControlWorker(&Scheduler::controlWorker, this);
 
         threadControlWorker.detach();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(QUANTUM_TIME_MS));
 
     }
+}
+
+void Scheduler::run()
+{
+
+    std::thread threadControlCycle(&Scheduler::controlCycle, this);
+
+    threadControlCycle.detach();
+
+    runned = true;
 
 }
+
+void Scheduler::stop()
+{
+    runned = false;
+}
+
